@@ -1,27 +1,32 @@
 <template>
   <div class="register-container">
     <div class="bg">
-        <div class="register-box">
-          <h1 class="title">用户注册</h1>
-          <el-form :model="registerForm" :rules="rules" ref="registerFormRef">
-            <el-form-item prop="username">
-              <el-input v-model="registerForm.username" placeholder="账号" prefix-icon="User" />
-            </el-form-item>
-            <el-form-item prop="password">
-              <el-input v-model="registerForm.password" type="password" placeholder="密码" prefix-icon="Lock" show-password />
-            </el-form-item>
-            <el-form-item prop="confirmPassword">
-              <el-input v-model="registerForm.confirmPassword" type="password" placeholder="确认密码" prefix-icon="Lock" show-password />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" class="register-btn" @click="handleRegister">注册</el-button>
-            </el-form-item>
-            <div class="login-link">
-              <span>已有账号？</span>
-              <router-link to="/login">返回登录</router-link>
-            </div>
-          </el-form>
-        </div>
+      <div class="register-box">
+        <h1 class="title">
+          <img class="title_logo" src="../assets/logo.png" alt="">
+          用户注册
+        </h1>
+        <el-form :model="registerForm" :rules="rules" ref="registerFormRef">
+          <el-form-item prop="username">
+            <el-input v-model="registerForm.username" placeholder="账号" prefix-icon="User" />
+          </el-form-item>
+          <el-form-item prop="password">
+            <el-input v-model="registerForm.password" type="password" placeholder="密码" prefix-icon="Lock"
+              show-password />
+          </el-form-item>
+          <el-form-item prop="confirmPassword">
+            <el-input v-model="registerForm.confirmPassword" type="password" placeholder="确认密码" prefix-icon="Lock"
+              show-password />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" class="register-btn" @click="handleRegister">注册</el-button>
+          </el-form-item>
+          <div class="login-link">
+            <span>已有账号？</span>
+            <router-link to="/login">返回登录</router-link>
+          </div>
+        </el-form>
+      </div>
     </div>
     <div class="register-image">
       <img src="../assets/customer-service.png" alt="客服图片" />
@@ -111,14 +116,18 @@ const handleRegister = () => {
   overflow: hidden;
 }
 
+.title_logo {
+  width: 40px;
+}
+
 .bg {
-    flex: 1;
-    background-image: url('../assets/bg.png');
-    background-size: 110% 130%;
-    background-repeat: no-repeat;
-    background-position: 100% 50%;
-    display: flex;
-    align-items: center;
+  flex: 1;
+  background-image: url('../assets/bg.png');
+  background-size: 110% 130%;
+  background-repeat: no-repeat;
+  background-position: 100% 50%;
+  display: flex;
+  align-items: center;
 }
 
 .register-box {
@@ -138,6 +147,11 @@ const handleRegister = () => {
   margin-bottom: 30px;
   font-size: 24px;
   color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-direction: column;
 }
 
 .register-btn {

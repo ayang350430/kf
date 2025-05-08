@@ -2,7 +2,10 @@
     <div class="login-container">
         <div class="bg">
             <div class="login-box">
-                <h1 class="title">后台管理系统</h1>
+                <h1 class="title">
+                    <img class="title_logo" src="../assets/logo.png" alt="">
+                    中鸡客服管理后台
+                </h1>
                 <el-form :model="loginForm" :rules="rules" ref="loginFormRef">
                     <el-form-item prop="username">
                         <el-input v-model="loginForm.username" placeholder="账号" prefix-icon="User" />
@@ -98,12 +101,12 @@ const handleLogin = () => {
             }
             let res = await login(obj)
             console.log(res);
-            
+            refreshCaptcha()
             // 模拟登录成功
-            // localStorage.setItem('isLoggedIn', 'true')
-            // localStorage.setItem('username', loginForm.username)
-            // ElMessage.success('登录成功')
-            // router.push('/chat')
+            localStorage.setItem('isLoggedIn', 'true')
+            localStorage.setItem('username', loginForm.username)
+            ElMessage.success('登录成功')
+            router.push('/chat')
         }
     })
 }
@@ -115,6 +118,9 @@ const handleLogin = () => {
     height: 100vh;
     /* background-color: #4080ff; */
     overflow: hidden;
+}
+.title_logo {
+    width: 40px;
 }
 .bg {
     flex: 1;
@@ -142,6 +148,11 @@ const handleLogin = () => {
     margin-bottom: 30px;
     font-size: 24px;
     color: #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-direction: column;
 }
 
 .login-btn {
