@@ -13,6 +13,7 @@
     "axios": "^1.9.0",
     "element-plus": "^2.9.9",
     "emoji-picker-element": "^1.26.3",
+    "jsencrypt": "^3.3.2",
     "vue": "^3.5.13",
     "vue-router": "^4.5.1"
   },

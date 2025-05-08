@@ -14,7 +14,9 @@
                     <el-form-item prop="captcha">
                         <div class="captcha-container">
                             <el-input v-model="loginForm.captcha" placeholder="验证码" />
-                            <div class="captcha-img">{{ captchaText }}</div>
+                            <div class="captcha-img" @click="refreshCaptcha">
+                                <img :src="loginForm.img" alt="" srcset="">
+                            </div>
                         </div>
                     </el-form-item>
                     <el-form-item>
@@ -38,6 +40,10 @@ import { ref, reactive, onMounted } from 'vue'
 import { User, Lock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
+// 导入rsa加密
+import { encrypt } from '../utils/rsaEncypt.js'
+// 导入登录api
+import { login, getCaptcha } from '../api/login'
 
 const router = useRouter()
 const loginFormRef = ref(null)
@@ -46,7 +52,9 @@ const captchaText = ref('S3A')
 const loginForm = reactive({
     username: '',
     password: '',
-    captcha: ''
+    captcha: '',
+    uuid:'', // 验证码uuid
+    img: '', // 验证码base64链接
 })
 
 const rules = {
@@ -61,33 +69,41 @@ const rules = {
     ]
 }
 
-// 生成随机验证码
-const generateCaptcha = () => {
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-    let result = ''
-    for (let i = 0; i < 3; i++) {
-        result += characters.charAt(Math.floor(Math.random() * characters.length))
-    }
-    captchaText.value = result
+// 生成验证码
+const generateCaptcha = async() => {
+    let res = await getCaptcha()
+    loginForm.uuid = res.uuid;
+    loginForm.img = res.img;
 }
+
+// 点击验证码图片时刷新验证码
+const refreshCaptcha = () => {
+    generateCaptcha()
+}
+
+
 
 onMounted(() => {
     generateCaptcha()
 })
 
 const handleLogin = () => {
-    loginFormRef.value.validate((valid) => {
+    loginFormRef.value.validate(async (valid) => {
         if (valid) {
-            if (loginForm.captcha.toUpperCase() !== captchaText.value.toUpperCase()) {
-                ElMessage.error('验证码错误')
-                generateCaptcha()
-                return
+            let obj = {
+                username: loginForm.username,
+                password: encrypt(loginForm.password),
+                uuid: loginForm.uuid,
+                code: loginForm.captcha
             }
+            let res = await login(obj)
+            console.log(res);
+            
             // 模拟登录成功
-            localStorage.setItem('isLoggedIn', 'true')
-            localStorage.setItem('username', loginForm.username)
-            ElMessage.success('登录成功')
-            router.push('/chat')
+            // localStorage.setItem('isLoggedIn', 'true')
+            // localStorage.setItem('username', loginForm.username)
+            // ElMessage.success('登录成功')
+            // router.push('/chat')
         }
     })
 }
@@ -150,6 +166,11 @@ const handleLogin = () => {
     font-size: 18px;
     user-select: none;
     cursor: pointer;
+
+    img {
+        width: 100px;
+        height: 40px;
+    }
 }
 
 .register-link {

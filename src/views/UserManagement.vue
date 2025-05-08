@@ -84,7 +84,7 @@
     <!-- 新增/编辑用户对话框 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="dialogType === 'add' ? '新增用户' : '编辑用户'"
+      :title="dialogType === 'add' ? '新增坐席' : '编辑坐席'"
       width="500px"
     >
       <el-form :model="userForm" label-width="100px" :rules="rules" ref="userFormRef">
@@ -111,6 +111,8 @@
 <script setup>
 import { ref, computed, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+// 引入api
+import { addAgents } from '../api/staff'
 
 // 专属链接
 const specialLink = ref('https://chat.zj.com/uffff')
@@ -241,29 +243,37 @@ const handleDelete = (row) => {
     })
 }
 
-// 提交表单
+// 提交表单 新增/编辑
 const submitForm = () => {
-  userFormRef.value.validate((valid) => {
+  userFormRef.value.validate( async (valid) => {
     if (valid) {
       if (dialogType.value === 'add') {
         // 新增用户
-        const newUser = {
-          id: `A${(users.length + 1).toString().padStart(6, '0')}`,
-          nickname: userForm.nickname,
-          username: userForm.username,
-          status: '离线',
-          lastLoginTime: '-',
-          registerTime: new Date().toLocaleString('zh-CN', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-          }).replace(/\//g, '-')
+        // const newUser = {
+        //   id: `A${(users.length + 1).toString().padStart(6, '0')}`,
+        //   nickname: userForm.nickname,
+        //   username: userForm.username,
+        //   status: '离线',
+        //   lastLoginTime: '-',
+        //   registerTime: new Date().toLocaleString('zh-CN', {
+        //     year: 'numeric',
+        //     month: '2-digit',
+        //     day: '2-digit',
+        //     hour: '2-digit',
+        //     minute: '2-digit',
+        //     second: '2-digit'
+        //   }).replace(/\//g, '-')
+        // }
+        let newUser = {
+            nickName: userForm.nickname,
+            password: userForm.password,
+            username: userForm.username,
         }
-        users.push(newUser)
-        ElMessage.success('添加成功')
+        const res = await addAgents(newUser);
+        console.log(res);
+        
+        // users.push(newUser)
+        // ElMessage.success('添加成功')
       } else {
         // 编辑用户
         const index = users.findIndex(user => user.id === userForm.id)

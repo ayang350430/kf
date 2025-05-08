@@ -34,6 +34,10 @@ import { ref, reactive } from 'vue'
 import { User, Lock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
+// 导入rsa加密
+import { encrypt } from '../utils/rsaEncypt.js'
+// 引入注册接口
+import { register } from '../api/login'
 
 const router = useRouter()
 const registerFormRef = ref(null)
@@ -80,11 +84,20 @@ const rules = {
 }
 
 const handleRegister = () => {
-  registerFormRef.value.validate((valid) => {
+  registerFormRef.value.validate(async (valid) => {
     if (valid) {
-      // 模拟注册成功
-      ElMessage.success('注册成功，请登录')
-      router.push('/login')
+      // 注册接口
+      let pas = encrypt(registerForm.password)
+      let obj = {
+        username: registerForm.username,
+        password: pas,
+        rePassword: pas,
+      }
+      let res = await register(obj)
+      if (res == 'OK') {
+        ElMessage.success('注册成功')
+        router.push('/login')
+      }
     }
   })
 }
