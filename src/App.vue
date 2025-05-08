@@ -6,7 +6,7 @@ import { useRoute } from 'vue-router'
 const route = useRoute()
 let isLoginOrRegister = ref(false)
 watch(() => route.path, (newPath) => {
-  isLoginOrRegister.value = newPath === '/login' || newPath === '/register'
+  isLoginOrRegister.value = newPath === '/login' || newPath === '/register' || newPath === '/user-chat' || newPath === '/loading'
 }, { immediate: true })
 
 

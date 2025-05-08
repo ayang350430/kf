@@ -33,6 +33,24 @@ const routes = [
     name: 'Chat',
     component: () => import('../views/Chat.vue'),
     meta: { requiresAuth: true }
+  },
+  // 个人信息
+  {
+    path: '/info',
+    name: 'info',
+    component: () => import('../views/info.vue'),
+  },
+  // 用户聊天页面
+  {
+    path: '/user-chat',
+    name: 'UserChat',
+    component: () => import('../views/UserChat.vue')
+  },
+  // 用户端客户进入页面
+  {
+    path: '/loading',
+    name: 'Loading',
+    component: () => import('../views/Loading.vue')
   }
 ]
 
