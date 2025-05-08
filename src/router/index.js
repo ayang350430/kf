@@ -51,6 +51,18 @@ const routes = [
     path: '/loading',
     name: 'Loading',
     component: () => import('../views/Loading.vue')
+  },
+  // 坐席管理页面
+  {
+    path: '/staff',
+    name: 'Staff',
+    component: () => import('../views/UserManagement.vue')
+  },
+  // 设置页面
+  {
+    path: '/setting',
+    name: 'Setting',
+    component: () => import('../views/Settings.vue')
   }
 ]
 

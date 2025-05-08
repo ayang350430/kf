@@ -13,9 +13,9 @@
         <div class="icon message-icon" @click="toChat"></div>
       </div>
       <div class="sidebar-item">
-        <div class="icon group-icon"></div>
+        <div class="icon group-icon" @click="toStaff"></div>
       </div>
-      <div class="sidebar-item">
+      <!-- <div class="sidebar-item">
         <div class="icon share-icon"></div>
       </div>
       <div class="sidebar-item">
@@ -23,7 +23,7 @@
       </div>
       <div class="sidebar-item">
         <div class="icon chat-icon"></div>
-      </div>
+      </div> -->
     </div>
   </div>
 </template>
@@ -66,8 +66,13 @@ const toChat = () => {
 
 // 点击设置
 const toSize = () => {
-  ElMessage.info('暂未开发')
+  // ElMessage.info('暂未开发')
+  router.push('/setting')
+}
 
+// 进入坐席管理
+const toStaff = () => {
+  router.push('/staff')
 }
 </script>
 
