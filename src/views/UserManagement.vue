@@ -28,6 +28,7 @@
         placeholder="搜索"
         class="search-input"
         clearable
+        @input="debounceSearch"
       >
         <template #prefix>
           <i class="el-icon-search search-icon"></i>
@@ -90,7 +91,9 @@
         v-model:page-size="pageSize"
         :page-sizes="[10, 20, 30, 50]"
         layout="total, sizes, prev, pager, next, jumper"
-        :total="filteredUsers.length"
+        :total="total"
+         prev-text="上一页"
+        next-text="下一页"
         @size-change="handleSizeChange"
         @current-change="handleCurrentChange"
         background
@@ -126,10 +129,10 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 // 引入api
-import { addAgents, getAgentsList, updateAgents, deleteAgents } from '../api/staff'
+import { addAgents, getShiftsList, updateAgents, deleteAgents } from '../api/staff'
 // 导入rsa加密
 import { encrypt } from '../utils/rsaEncypt.js'
 
@@ -151,26 +154,36 @@ const copyLink = () => {
 const searchQuery = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
+let total = ref(0);
 
 // 用户数据
 const users = ref([])
 
 // 过滤用户数据
 const filteredUsers = computed(() => {
-  if (!searchQuery.value) return users.value
-  
-  return users.value.filter(user => 
-    user.nickname.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-    user.username.toLowerCase().includes(searchQuery.value.toLowerCase())
-  )
+  return users.value
 })
 
+// 防抖搜索
+let searchTimer = null
+const debounceSearch = (val) => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
+  searchTimer = setTimeout(() => {
+    getAgentsListApi(val)
+  }, 300)
+}
+
+
 // 获取坐席列表
-const getAgentsListApi = async () => {
-  const res = await getAgentsList();
-  console.log(res.length);
-  if (res.length > 0) {
-    users.value = res;
+const getAgentsListApi = async (blurry) => {
+  users.value = []
+  total.value = 0
+  const res = await getShiftsList({blurry: blurry});
+  if (res.content.length > 0) {
+    users.value = res.content;
+    total.value = res.totalElements;
   }
 }
 

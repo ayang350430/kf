@@ -1,6 +1,34 @@
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElLoading } from 'element-plus'
 
+// 创建加载实例的存储对象
+let loadingInstance = null
+// 请求计数器
+let requestCount = 0
+
+// 显示加载
+const showLoading = () => {
+  if (requestCount === 0) {
+    loadingInstance = ElLoading.service({
+      fullscreen: true,
+      lock: true,
+      text: '加载中...',
+      background: 'rgba(0, 0, 0, 0.1)'
+    })
+  }
+  requestCount++
+}
+
+// 隐藏加载
+const hideLoading = () => {
+  requestCount--
+  if (requestCount === 0) {
+    // 延迟关闭loading，避免闪烁
+    setTimeout(() => {
+      loadingInstance?.close()
+    }, 300)
+  }
+}
 // 创建 axios 实例
 const service = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL, // 从环境变量获取基础URL
@@ -13,6 +41,10 @@ const service = axios.create({
 // 请求拦截器
 service.interceptors.request.use(
   config => {
+     // 显示加载状态
+     if (!config.hideLoading) {
+      showLoading()
+    }
     const token = localStorage.getItem('token')
     // 在发送请求之前做些什么
     if (token) {
@@ -30,6 +62,10 @@ service.interceptors.request.use(
 // 响应拦截器
 service.interceptors.response.use(
   response => {
+     // 隐藏加载状态
+     if (!response.config.hideLoading) {
+      hideLoading()
+    }
     const res = response.data
     // 根据你的后端API响应结构进行调整
     if (res.code && res.code !== 200) {
@@ -39,6 +75,8 @@ service.interceptors.response.use(
     return res
   },
   error => {
+    // 隐藏加载状态
+    hideLoading()
     console.error('Response error:', error)
     ElMessage.error(error.message || '请求失败')
     return Promise.reject(error)

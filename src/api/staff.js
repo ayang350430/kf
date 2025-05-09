@@ -17,10 +17,19 @@ export function deleteAgents(agentId) {
   })
 }
 
-// 坐席列表
+// 坐席列表(下拉)
 export function getAgentsList(params) {
   return request({
     url: '/api/im/front/agents/list',
+    method: 'get',
+    params
+  })
+}
+
+// 作息列表 （分页）
+export function getShiftsList(params) {
+  return request({
+    url: '/api/im/front/agents/page',
     method: 'get',
     params
   })
