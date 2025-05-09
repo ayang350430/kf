@@ -2,11 +2,20 @@
   <div class="chat-container">
     <div class="chat-sidebar">
       <div class="conversation-list">
-        <div v-for="(conversation, index) in conversations" :key="index" class="conversation-item"
-          :class="{ active: currentConversation === index }" @click="switchConversation(index)">
+        <div v-if="conversations.length === 0" class="empty-state">
+          <el-empty description="暂无会话" />
+        </div>
+        <div v-else v-for="(conversation, index) in conversations" :key="index" class="conversation-item" :class="{
+          active: currentConversation === index,
+          unread: conversation.unread
+        }" @click="switchConversation(index)">
           <el-avatar :size="40" icon="User" />
           <div class="conversation-info">
-            <div class="conversation-name">{{ conversation.name }}</div>
+            <div class="conversation-name">
+              {{ conversation.name }}
+              <!-- 未读 -->
+              <span v-if="conversation.unread" class="unread-badge">{{ conversation.unreadCount || 1 }}</span>
+            </div>
             <div class="conversation-preview">{{ conversation.lastMessage }}</div>
           </div>
         </div>
@@ -89,7 +98,11 @@ import { User } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import 'emoji-picker-element'
+// 引入WebSocket客户端
 import wsClient from '../utils/websocket'
+// 引入api
+import { listActive } from '@/api/chat'
+
 
 const router = useRouter()
 const username = ref(localStorage.getItem('username') || '用户')
@@ -100,52 +113,8 @@ const totalMessages = ref(0)
 const showEmojiPicker = ref(false)
 const emojiPickerRef = ref(null)
 // 模拟会话数据
-const conversations = reactive([
-  {
-    name: '客户1',
-    lastMessage: '您好，我需要帮助',
-    messages: [
-      { content: '您好，有什么可以帮助您的？', time: '09:30', isSelf: false },
-      { content: '我想咨询一下产品的使用方法', time: '09:31', isSelf: true },
-      { content: '好的，请问您具体想了解哪方面的使用方法？', time: '09:32', isSelf: false }
-    ]
-  },
-  {
-    name: '客户2',
-    lastMessage: '谢谢您的帮助',
-    messages: [
-      { content: '您好，欢迎咨询', time: '10:15', isSelf: false },
-      { content: '我的账户出现了问题', time: '10:16', isSelf: true },
-      { content: '请您详细描述一下问题，我们会尽快为您解决', time: '10:17', isSelf: false }
-    ]
-  },
-  {
-    name: '客户3',
-    lastMessage: '好的，我明白了',
-    messages: [
-      { content: '您好，有什么可以帮您？', time: '11:20', isSelf: false },
-      { content: '我想退换一个商品', time: '11:21', isSelf: true },
-      { content: '请提供您的订单号，我们会为您处理退换事宜', time: '11:22', isSelf: false }
-    ]
-  },
-  {
-    name: '客户4',
-    lastMessage: '产品质量很好',
-    messages: [
-      { content: '您好，感谢您选择我们的产品', time: '13:45', isSelf: false },
-      { content: '我对你们的产品非常满意', time: '13:47', isSelf: true },
-      { content: '谢谢您的支持，如有任何问题随时咨询我们', time: '13:48', isSelf: false }
-    ]
-  },
-  {
-    name: '客户5',
-    lastMessage: '需要更多信息',
-    messages: [
-      { content: '您好，欢迎咨询我们的服务', time: '14:30', isSelf: false },
-      { content: '我想了解一下你们的最新产品', time: '14:32', isSelf: true },
-      { content: '我们最近推出了全新的智能家居系列，您想了解哪方面的信息？', time: '14:33', isSelf: false }
-    ]
-  }
+const conversations = ref([
+
 ])
 
 const openEmojiPicker = (event) => {
@@ -161,7 +130,7 @@ const closeEmojiPicker = () => {
 // 添加 WebSocket 消息处理函数
 const handleWebSocketMessage = (data) => {
   console.log('收到WebSocket消息:', data)
-  
+
   // 根据消息类型处理不同的消息
   if (data.type === 'message') {
     // 处理聊天消息
@@ -171,14 +140,14 @@ const handleWebSocketMessage = (data) => {
       isSelf: false,
       type: data.messageType || 'text'
     }
-    
+
     // 如果指定了会话ID，则添加到对应会话
     if (data.conversationId !== undefined) {
-      const index = conversations.findIndex(conv => conv.id === data.conversationId)
+      const index = conversations.value.findIndex(conv => conv.id === data.conversationId)
       if (index !== -1) {
-        conversations[index].messages.push(newMessage)
-        conversations[index].lastMessage = data.content
-        
+        conversations.value[index].messages.push(newMessage)
+        conversations.value[index].lastMessage = data.content
+
         // 如果不是当前会话，可以添加未读消息提示
         if (currentConversation.value !== index) {
           // 这里可以添加未读消息提示的逻辑
@@ -186,10 +155,10 @@ const handleWebSocketMessage = (data) => {
       }
     } else {
       // 默认添加到当前会话
-      conversations[currentConversation.value].messages.push(newMessage)
-      conversations[currentConversation.value].lastMessage = data.content
+      conversations.value[currentConversation.value].messages.push(newMessage)
+      conversations.value[currentConversation.value].lastMessage = data.content
     }
-    
+
     // 滚动到底部
     nextTick(() => {
       scrollToBottom()
@@ -200,14 +169,27 @@ const handleWebSocketMessage = (data) => {
   }
 }
 
+// 获取左侧会话列表
+const getConversations = async () => {
+  try {
+    const res = await listActive()
+    if (res) {
+      conversations.value = res;
+      console.log('获取会话列表成功:', res)
+    }
+  } catch (error) {
+    console.error('获取会话列表失败:', error)
+  }
+}
+
 // 在组件挂载后添加全局点击事件监听器
 onMounted(() => {
   // 连接WebSocket
   wsClient.connect()
-  
+
   // 注册WebSocket消息处理函数
   const removeMessageListener = wsClient.onMessage(handleWebSocketMessage)
-  
+
   // 初始化时滚动到底部
   scrollToBottom()
 
@@ -216,6 +198,9 @@ onMounted(() => {
       customElements.define('emoji-picker', EmojiPicker)
     })
   }
+
+  // 初始化时获取会话列表
+  getConversations()
 })
 
 // 在组件卸载前断开WebSocket连接
@@ -256,20 +241,20 @@ const openImageUploader = () => {
         }
 
         // 直接添加图片消息到当前会话
-        conversations[currentConversation.value].messages.push(imageMessage)
+        conversations.value[currentConversation.value].messages.push(imageMessage)
 
         // 通过WebSocket发送图片消息
         wsClient.send({
           type: 'chat',
           content: e.target.result,
-          conversationId: conversations[currentConversation.value].id,
+          conversationId: conversations.value[currentConversation.value].id,
           messageType: 'image',
           timestamp: new Date().getTime()
         })
-        
+
         // 清空输入框，因为图片已经作为单独消息发送
         messageInput.value = ''
-        
+
         // 滚动到底部显示新消息
         nextTick(() => {
           scrollToBottom()
@@ -288,12 +273,12 @@ const openImageUploader = () => {
 
 // 计算属性：当前会话名称
 const currentConversationName = computed(() => {
-  return conversations[currentConversation.value]?.name || ''
+  return conversations.value[currentConversation.value]?.name || ''
 })
 
 // 计算属性：当前会话消息
 const currentMessages = computed(() => {
-  return conversations[currentConversation.value]?.messages || []
+  return conversations.value[currentConversation.value]?.messages || []
 })
 
 // 切换会话
@@ -317,10 +302,10 @@ const sendMessage = () => {
     type: 'text'
   }
 
-  conversations[currentConversation.value].messages.push(newMessage)
+  conversations.value[currentConversation.value].messages.push(newMessage)
 
   // 更新最后一条消息预览
-  conversations[currentConversation.value].lastMessage = messageInput.value
+  conversations.value[currentConversation.value].lastMessage = messageInput.value
 
   // 清空输入框
   messageInput.value = ''
@@ -338,8 +323,8 @@ const sendMessage = () => {
       isSelf: false,
       type: 'text'
     }
-    conversations[currentConversation.value].messages.push(autoReply)
-    conversations[currentConversation.value].lastMessage = autoReply.content
+    conversations.value[currentConversation.value].messages.push(autoReply)
+    conversations.value[currentConversation.value].lastMessage = autoReply.content
 
     // 滚动到底部
     nextTick(() => {
@@ -375,6 +360,8 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+
+
 :deep(.emoji-picker-container) {
   bottom: 7% !important;
   right: 125px !important;

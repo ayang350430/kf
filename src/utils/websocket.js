@@ -19,9 +19,15 @@ class WebSocketClient {
     try {
       // 获取存储在本地的 token
       const token = localStorage.getItem('token')
-      // 创建带有 token 的子协议
-      const protocols = token ? [`token.${token}`] : []
-      this.ws = new WebSocket(this.url, protocols)
+      // 将 token 添加到 URL 中
+      let wsUrl = this.url
+      if (token) {
+        // 检查 URL 是否已经包含查询参数
+        wsUrl += (wsUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token.replace('Bearer ', ''))}`
+      }
+
+      // 删除未使用的 wsOptions 相关代码
+      this.ws = new WebSocket(wsUrl)
 
       this.ws.onopen = () => {
         console.log('WebSocket connected')
@@ -99,10 +105,17 @@ class WebSocketClient {
       }
 
       console.log('Sending heartbeat...');
-      
+
       // 发送心跳消息 (与后端的约定有关)
       this.send({
         type: 'UP_HEARTBEAT',
+        data: {
+          timestamp: new Date().getTime()
+        }
+      })
+      // 所有会话的未读消息数据
+      this.send({
+        type: 'UP_QUERY_UNREAD',
         data: {
           timestamp: new Date().getTime()
         }
