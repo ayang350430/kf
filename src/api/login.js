@@ -28,3 +28,12 @@ export function register(data) {
     data
   })
 }
+
+// 退出登录
+export function logout(data) {
+  return request({
+    url: '/auth/logout',
+    method: 'DELETE',
+    data
+  })
+}

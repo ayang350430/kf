@@ -47,6 +47,8 @@ import { useRouter } from 'vue-router'
 import { encrypt } from '../utils/rsaEncypt.js'
 // 导入登录api
 import { login, getCaptcha } from '../api/login'
+// 引入用户仓库
+import { useUserStore } from '../stores/index.js'
 
 const router = useRouter()
 const loginFormRef = ref(null)
@@ -99,14 +101,23 @@ const handleLogin = () => {
                 uuid: loginForm.uuid,
                 code: loginForm.captcha
             }
+           try {
             let res = await login(obj)
-            console.log(res);
-            refreshCaptcha()
-            // 模拟登录成功
-            localStorage.setItem('isLoggedIn', 'true')
-            localStorage.setItem('username', loginForm.username)
-            ElMessage.success('登录成功')
-            router.push('/chat')
+            if (res.token) {
+                // 获取验证码
+                refreshCaptcha();
+                localStorage.setItem('isLoggedIn', 'true')
+                localStorage.setItem('username', loginForm.username)
+                // 存储用户仓库，持久化储存信息
+                useUserStore().setToken(res.token)
+                useUserStore().setUserInfo(res.user)
+                ElMessage.success('登录成功')
+                router.push('/chat')
+            }
+           } catch (error) {
+                refreshCaptcha();
+                console.log(error);
+           }
         }
     })
 }

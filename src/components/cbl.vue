@@ -1,12 +1,12 @@
 <template>
   <div>
     <div class="sidebar">
-      <div class="sidebar-item" @mouseenter="sidebarMouseenter" >
+      <div class="sidebar-item" @mouseenter="sidebarMouseenter">
         <div class="icon user-icon"></div>
-        <div class="dropdown-menu" :style="{height: dropdownHeiht + 'px'}" @mouseleave="sidebarMouseleave">
+        <div class="dropdown-menu" :style="{ height: dropdownHeiht + 'px' }" @mouseleave="sidebarMouseleave">
           <div class="dropdown-item" @click="toInfo">个人信息</div>
           <div class="dropdown-item" @click="toSize">设置</div>
-          <div class="dropdown-item"  @click="handleLogout">退出登录</div>
+          <div class="dropdown-item" @click="handleLogout">退出登录</div>
         </div>
       </div>
       <div class="sidebar-item">
@@ -32,17 +32,21 @@
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { ref } from 'vue'
+// 引入用户仓库
+import { useUserStore } from '../stores/index.js'
 
 const router = useRouter()
 const dropdownHeiht = ref(0)
 
 // 退出登录
 const handleLogout = () => {
-  localStorage.removeItem('isLoggedIn')
-  localStorage.removeItem('username')
-  ElMessage.success('已退出登录')
-  router.push('/login')
-}
+  let res = useUserStore().logouts();
+  if (res == 'OK') {
+    token.value = ''
+    userInfo.value = {}
+    ElMessage.success('退出登录成功')
+  }
+}  
 
 // 鼠标移入
 const sidebarMouseenter = () => {
@@ -156,5 +160,4 @@ const toStaff = () => {
 .chat-icon {
   background-image: url('../assets/chat.png');
 } */
-
 </style>
