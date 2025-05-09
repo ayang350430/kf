@@ -12,11 +12,13 @@
         }" @click="switchConversation(index)">
           <el-avatar :size="40" icon="User" />
           <div class="conversation-info">
-            <div class="conversation-name">
-              {{ conversation.name || 'temp' }}
-              <!-- <span v-if="conversation.lastMessageTime" class="unread-badge">{{ conversation.lastMessageTime || 1 }}</span> -->
+            <div class="title_box">
+              <div class="conversation-name">
+                {{ conversation.name || 'temp' }}
+              </div>
+              <div class="conversation-preview">{{ formatDateTime(conversation?.lastMessageTime) }}</div>
             </div>
-            <div class="conversation-preview">{{ conversation.lastMessage }}</div>
+            <span v-if="conversation.lastMessage" class="unread-badge">{{ conversation.lastMessage || 1 }}</span>
           </div>
         </div>
       </div>
@@ -71,8 +73,8 @@
         </div>
         <div class="user-stats">
           <div class="stat-item">
-            <div class="stat-label">最后发消息时间</div>
-            <div class="stat-value">{{  leftConversations[currentConversation]?.lastMessage || '未知' }}</div>
+            <div class="stat-label">首次会话时间</div>
+            <div class="stat-value">{{  formatDateTime(leftConversations[currentConversation]?.firstConnectTime) || '未知' }}</div>
           </div>
           <div class="stat-item">
             <div class="stat-label">消息数</div>
@@ -104,6 +106,8 @@ import 'emoji-picker-element'
 import wsClient from '../utils/websocket'
 // 引入api
 import { listActive, sessionsPage } from '@/api/chat'
+// 引入时间格式化函数
+import { formatDateTime } from '@/utils/data.js'
 
 
 const router = useRouter()
@@ -174,6 +178,8 @@ const handleWebSocketMessage = (data) => {
   }
 }
 
+
+
 // 查询历史回话数据 id: 查看历史会话的临时用户ID
 const dataList = async (row)=> {
   
@@ -181,11 +187,15 @@ const dataList = async (row)=> {
   let obj = {
     page: 0,
     size: 100,
-    sessionId: row?.id
+    sessionId: row?.id,
   }
   let res = await sessionsPage(obj)
   if (res) {
-    conversations.value = res.content;
+    let constRes = []
+    res.content.forEach(element => {
+      constRes.unshift(element)
+    });
+    conversations.value = constRes;
     conversationsTotal.value = res.totalElements
   }
 }
@@ -195,7 +205,7 @@ const getConversations = async () => {
   try {
     const resData = await listActive()
     
-    if (resData) {
+    if (resData.length != 0) {
       leftConversations.value = resData;
       // 在获取默认第一条对话的历史数据、首次进入
       dataList(resData[0])
@@ -479,7 +489,7 @@ onMounted(() => {
 .stat-label {
   font-size: 12px;
   color: #666;
-  margin-top: 5px;
+  // margin-top: 5px;
   /* margin-right: 10px; */
   width: 60px;
   text-align-last: left;
@@ -549,14 +559,38 @@ onMounted(() => {
 .conversation-name {
   font-weight: bold;
   margin-bottom: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+.title_box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.unread-badge {
+  font-size: 14px;
+  color: #999;
+  display: flex;
+  justify-content: baseline;
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .conversation-preview {
   font-size: 12px;
-  color: #999;
+  color: #586f03;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .chat-main {
