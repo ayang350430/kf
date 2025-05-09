@@ -5,30 +5,29 @@
     </div>
     <div class="info-content">
       <div class="avatar-section">
-        <el-avatar :size="100" icon="User" />
-        <el-button type="primary" size="small" class="upload-btn">更换头像</el-button>
+        <el-avatar :size="100" :src="userInfo.avatar" icon="User" />
+        <el-button type="primary" size="small" class="upload-btn" @click="upAvater">更换头像</el-button>
       </div>
       <div class="info-form">
         <el-form :model="userInfo" label-width="80px">
           <el-form-item label="用户名">
             <el-input v-model="userInfo.username" disabled></el-input>
           </el-form-item>
-          <el-form-item label="姓名">
-            <el-input v-model="userInfo.name"></el-input>
+          <el-form-item label="组织简介">
+            <el-input v-model="userInfo.zzjj"></el-input>
           </el-form-item>
-          <el-form-item label="邮箱">
-            <el-input v-model="userInfo.email"></el-input>
+          <el-form-item label="组织名称">
+            <el-input v-model="userInfo.zzmc"></el-input>
           </el-form-item>
-          <el-form-item label="手机号">
+          <!-- <el-form-item label="手机号">
             <el-input v-model="userInfo.phone"></el-input>
           </el-form-item>
           <el-form-item label="地址">
             <el-input v-model="userInfo.address" type="textarea" :rows="2"></el-input>
-          </el-form-item>
+          </el-form-item> -->
           <el-form-item>
             <el-button type="primary" @click="saveUserInfo">保存</el-button>
             <el-button @click="resetForm">重置</el-button>
-            <el-button type="danger" @click="handleLogout">退出登录</el-button>
           </el-form-item>
         </el-form>
       </div>
@@ -40,19 +39,65 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
+// 引入api
+import { editUserInfo } from '@/api/info.js'
 
 const router = useRouter()
 const userInfo = ref({
   username: localStorage.getItem('username') || '用户',
   name: '游客',
-  email: '',
-  phone: '',
-  address: '',
+  zzjj: '',
+  zzmc: '',
+  avatar: ''// 头像
 })
 
 // 保存用户信息
-const saveUserInfo = () => {
+const saveUserInfo = async () => {
+  let obj = {
+    nickName: userInfo.value.name,
+    orgBrief: userInfo.value.zzjj,
+    orgName: userInfo.value.zzmc,
+    avatarPath: userInfo.value.avatar
+  }
+  const res = await editUserInfo(obj)
+  console.log(res);
+  
   ElMessage.success('保存成功')
+}
+
+// 选择头像
+const upAvater = () => {
+  // 创建一个隐藏的文件输入元素
+  const fileInput = document.createElement('input')
+  fileInput.type = 'file'
+  fileInput.accept = 'image/*'
+  
+  // 监听文件选择事件
+  fileInput.onchange = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+      // 创建一个FormData对象用于上传
+      const formData = new FormData()
+      formData.append('avatar', file)
+      
+      // 这里可以添加上传头像的API调用
+      // 例如: const res = await uploadAvatar(formData)
+      
+      // 临时显示选择的图片
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        // 这里可以预览图片或更新头像
+        // 例如: userInfo.value.avatar = e.target.result
+        userInfo.value.avatar = e.target.result
+      }
+      reader.readAsDataURL(file)
+      
+      ElMessage.success('头像已选择，等待上传')
+    }
+  }
+  
+  // 触发文件选择对话框
+  fileInput.click()
 }
 
 // 重置表单
@@ -65,14 +110,6 @@ const resetForm = () => {
     address: '',
   }
   ElMessage.info('已重置')
-}
-
-// 退出登录
-const handleLogout = () => {
-  localStorage.removeItem('isLoggedIn')
-  localStorage.removeItem('username')
-  ElMessage.success('已退出登录')
-  router.push('/login')
 }
 
 onMounted(() => {

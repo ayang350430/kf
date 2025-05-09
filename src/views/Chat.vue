@@ -2,19 +2,19 @@
   <div class="chat-container">
     <div class="chat-sidebar">
       <div class="conversation-list">
-        <div v-if="conversations.length === 0" class="empty-state">
+        <!-- 没有对话进入 -->
+        <div v-if="leftConversations.length == 0" class="empty-state">
           <el-empty description="暂无会话" />
         </div>
-        <div v-else v-for="(conversation, index) in conversations" :key="index" class="conversation-item" :class="{
+        <div v-else v-for="(conversation, index) in leftConversations" :key="index" class="conversation-item" :class="{
           active: currentConversation === index,
           unread: conversation.unread
         }" @click="switchConversation(index)">
           <el-avatar :size="40" icon="User" />
           <div class="conversation-info">
             <div class="conversation-name">
-              {{ conversation.name }}
-              <!-- 未读 -->
-              <span v-if="conversation.unread" class="unread-badge">{{ conversation.unreadCount || 1 }}</span>
+              {{ conversation.name || 'temp' }}
+              <!-- <span v-if="conversation.lastMessageTime" class="unread-badge">{{ conversation.lastMessageTime || 1 }}</span> -->
             </div>
             <div class="conversation-preview">{{ conversation.lastMessage }}</div>
           </div>
@@ -22,12 +22,15 @@
       </div>
     </div>
     <div class="chat-main">
-      <div class="chat-header">
-        <div class="current-user">{{ currentConversationName }}</div>
-        <!-- <el-button type="danger" size="small" @click="handleLogout">退出登录</el-button> -->
+      <!-- 左侧没有对话的时候不显示 确保不报错-->
+      <div class="chat-header" v-if="leftConversations.length != 0">
+        <div class="current-user">{{ currentConversationName || 'temp' }}</div>
       </div>
-      <div class="chat-messages" ref="messagesContainer">
-        <div v-for="(message, index) in currentMessages" :key="index" class="message"
+      <div class="chat-messages" v-if="leftConversations.length != 0" ref="messagesContainer">
+        <div v-if="currentMessages.length == 0" class="empty-state">
+          <el-empty description="暂无聊天记录" />
+        </div>
+        <div v-else v-for="(message, index) in currentMessages" :key="index" class="message"
           :class="{ 'message-self': message.isSelf }">
           <el-avatar :size="40" icon="User" />
           <div class="message-content">
@@ -39,11 +42,11 @@
                 {{ message.content }}
               </template>
             </div>
-            <div class="message-time">{{ message.time }}</div>
+            <div class="message-time">{{ message.createTime }}</div>
           </div>
         </div>
       </div>
-      <div class="chat-input">
+      <div class="chat-input" v-if="leftConversations.length != 0">
         <el-input v-model="messageInput" type="textarea" :rows="3" placeholder="请输入消息..."
           @keyup.enter.native="sendMessage" />
         <div class="input-actions">
@@ -59,32 +62,31 @@
     <div class="user-profile-panel">
       <div class="profile-header">
         <h3>个人信息</h3>
-        <!-- <el-button type="primary" size="small" @click="goToProfile">查看详情</el-button> -->
       </div>
       <div class="profile-content">
         <el-avatar :size="80" icon="User" />
         <div class="user-info_data">
-          <div class="username">{{ username }}</div>
-          <div class="status">在线</div>
+          <div class="username">{{  currentConversationName || 'temp' }}</div>
+          <!-- <div class="status">在线</div> -->
         </div>
         <div class="user-stats">
           <div class="stat-item">
-            <div class="stat-label">会话数</div>
-            <div class="stat-value">{{ conversations.length }}</div>
+            <div class="stat-label">最后发消息时间</div>
+            <div class="stat-value">{{  leftConversations[currentConversation]?.lastMessage || '未知' }}</div>
           </div>
           <div class="stat-item">
             <div class="stat-label">消息数</div>
-            <div class="stat-value">3</div>
+            <div class="stat-value">{{ conversationsTotal }}</div>
           </div>
         </div>
         <div class="user-stats">
           <div class="stat-item">
             <div class="stat-label">姓名</div>
-            <div class="stat-value">游客</div>
+            <div class="stat-value">{{  currentConversationName || 'temp' }}</div>
           </div>
           <div class="stat-item">
             <div class="stat-label">ip</div>
-            <div class="stat-value">192.168.1.1</div>
+            <div class="stat-value">{{  leftConversations[currentConversation]?.ip }}</div>
           </div>
         </div>
       </div>
@@ -101,7 +103,7 @@ import 'emoji-picker-element'
 // 引入WebSocket客户端
 import wsClient from '../utils/websocket'
 // 引入api
-import { listActive } from '@/api/chat'
+import { listActive, sessionsPage } from '@/api/chat'
 
 
 const router = useRouter()
@@ -116,6 +118,9 @@ const emojiPickerRef = ref(null)
 const conversations = ref([
 
 ])
+// 左侧对话数据
+const leftConversations = ref([])
+const conversationsTotal = ref(0)
 
 const openEmojiPicker = (event) => {
   // 打开表情选择器的逻辑
@@ -169,13 +174,31 @@ const handleWebSocketMessage = (data) => {
   }
 }
 
+// 查询历史回话数据 id: 查看历史会话的临时用户ID
+const dataList = async (row)=> {
+  
+  // 请求参数处理
+  let obj = {
+    page: 0,
+    size: 100,
+    sessionId: row?.id
+  }
+  let res = await sessionsPage(obj)
+  if (res) {
+    conversations.value = res.content;
+    conversationsTotal.value = res.totalElements
+  }
+}
+
 // 获取左侧会话列表
 const getConversations = async () => {
   try {
-    const res = await listActive()
-    if (res) {
-      conversations.value = res;
-      console.log('获取会话列表成功:', res)
+    const resData = await listActive()
+    
+    if (resData) {
+      leftConversations.value = resData;
+      // 在获取默认第一条对话的历史数据、首次进入
+      dataList(resData[0])
     }
   } catch (error) {
     console.error('获取会话列表失败:', error)
@@ -273,17 +296,19 @@ const openImageUploader = () => {
 
 // 计算属性：当前会话名称
 const currentConversationName = computed(() => {
-  return conversations.value[currentConversation.value]?.name || ''
+  return leftConversations.value[currentConversation.value]?.name || ''
 })
 
 // 计算属性：当前会话消息
 const currentMessages = computed(() => {
-  return conversations.value[currentConversation.value]?.messages || []
+  return conversations.value || []
 })
 
 // 切换会话
 const switchConversation = (index) => {
   currentConversation.value = index
+  // 查询历史数据
+  dataList(leftConversations.value[index])
   // 切换后滚动到底部
   nextTick(() => {
     scrollToBottom()
@@ -360,7 +385,28 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  padding: 20px;
 
+  :deep(.el-empty) {
+    padding: 40px 0;
+
+    .el-empty__description {
+      margin-top: 10px;
+      color: #909399;
+      font-size: 14px;
+    }
+
+    .el-empty__image {
+      width: 120px;
+      height: 120px;
+    }
+  }
+}
 
 :deep(.emoji-picker-container) {
   bottom: 7% !important;
@@ -427,6 +473,7 @@ onMounted(() => {
   font-size: 14px;
   font-weight: bold;
   color: #383838;
+  margin-left: 10px;
 }
 
 .stat-label {

@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="sidebar">
-      <div class="sidebar-item" @mouseenter="sidebarMouseenter">
+      <div class="sidebar-item" @mouseenter="sidebarMouseenter" @mouseleave="sidebarMouseleave">
         <div class="icon user-icon"></div>
         <div class="dropdown-menu" :style="{ height: dropdownHeiht + 'px' }" @mouseleave="sidebarMouseleave">
           <div class="dropdown-item" @click="toInfo">个人信息</div>
