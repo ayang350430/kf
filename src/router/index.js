@@ -73,12 +73,22 @@ const router = createRouter({
 
 // 路由守卫，检查用户是否已登录
 router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('token')
   const isLoggedIn = localStorage.getItem('isLoggedIn')
+
+  // 如果需要登录认证但未登录，跳转到登录页
   if (to.meta.requiresAuth && !isLoggedIn) {
     next('/login')
-  } else {
-    next()
+    return
   }
+
+  // 已登录用户不允许访问登录和注册页面
+  if (isLoggedIn && token && (to.path === '/login' || to.path === '/register')) {
+    next('/chat')
+    return
+  }
+
+  next()
 })
 
 export default router

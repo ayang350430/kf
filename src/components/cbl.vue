@@ -39,12 +39,11 @@ const router = useRouter()
 const dropdownHeiht = ref(0)
 
 // 退出登录
-const handleLogout = () => {
-  let res = useUserStore().logouts();
+const handleLogout = async() => {
+  let res = await useUserStore().logouts();
   if (res == 'OK') {
-    token.value = ''
-    userInfo.value = {}
     ElMessage.success('退出登录成功')
+    router.push('/login')// 定向到登录页面
   }
 }  
 

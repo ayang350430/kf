@@ -13,8 +13,8 @@ const service = axios.create({
 // 请求拦截器
 service.interceptors.request.use(
   config => {
-    // 在发送请求之前做些什么
     const token = localStorage.getItem('token')
+    // 在发送请求之前做些什么
     if (token) {
       config.headers['Authorization'] = `${token}`
     }

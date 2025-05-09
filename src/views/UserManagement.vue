@@ -28,46 +28,61 @@
         placeholder="搜索"
         class="search-input"
         clearable
-      />
-      <el-button type="primary" @click="handleAdd">新增</el-button>
+      >
+        <template #prefix>
+          <i class="el-icon-search search-icon"></i>
+        </template>
+      </el-input>
+      <el-button type="primary" class="add-button" @click="handleAdd">
+        <i class="el-icon-plus"></i> 新增
+      </el-button>
     </div>
-
-    <el-table
-      :data="filteredUsers"
-      border
-      style="width: 100%"
-      :header-cell-style="{ background: '#f5f7fa', color: '#606266' }"
-    >
-      <el-table-column prop="nickname" label="昵称" width="180" />
-      <el-table-column prop="username" label="用户名" width="180" />
-      <el-table-column prop="status" label="是否在线">
-        <template #default="scope">
-          <span :class="scope.row.status === '在线' ? 'status-online' : 'status-offline'">
-            {{ scope.row.status }}
-          </span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="lastLoginTime" label="最后登录时间" />
-      <el-table-column prop="registerTime" label="注册时间" />
-      <el-table-column label="操作" width="180">
-        <template #default="scope">
-          <el-button
-            size="small"
-            type="primary"
-            @click="handleEdit(scope.row)"
-          >
-            编辑
-          </el-button>
-          <el-button
-            size="small"
-            type="danger"
-            @click="handleDelete(scope.row)"
-          >
-            删除
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    
+    <div class="table-container">
+      <el-table
+        :data="filteredUsers"
+        border
+        style="width: 100%"
+        :header-cell-style="{ background: '#f5f7fa', color: '#606266' }"
+        stripe
+        highlight-current-row
+      >
+        <el-table-column prop="id" label="用户ID" width="180" />
+        <el-table-column prop="username" label="用户名" width="180" />
+        <el-table-column prop="nickName" label="昵称" width="180" />
+        <el-table-column prop="status" label="是否激活">
+          <template #default="scope">
+            <span :class="scope.row.enabled ? 'status-online' : 'status-offline'">
+              {{ scope.row.enabled? '激活' : '未激活' }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="createTime" label="创建时间" />
+        <el-table-column prop="updateTime" label="修改时间" />
+        <el-table-column label="操作" width="180" fixed="right">
+          <template #default="scope">
+            <div class="operation-buttons">
+              <el-button
+                size="small"
+                type="primary"
+                @click="handleEdit(scope.row)"
+                class="edit-button"
+              >
+                编辑
+              </el-button>
+              <el-button
+                size="small"
+                type="danger"
+                @click="handleDelete(scope.row)"
+                class="delete-button"
+              >
+                删除
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
 
     <div class="pagination-container">
       <el-pagination
@@ -78,6 +93,7 @@
         :total="filteredUsers.length"
         @size-change="handleSizeChange"
         @current-change="handleCurrentChange"
+        background
       />
     </div>
 
@@ -86,22 +102,23 @@
       v-model="dialogVisible"
       :title="dialogType === 'add' ? '新增坐席' : '编辑坐席'"
       width="500px"
+      destroy-on-close
     >
       <el-form :model="userForm" label-width="100px" :rules="rules" ref="userFormRef">
-        <el-form-item label="昵称" prop="nickname">
+        <el-form-item label="昵称/账号" prop="nickname">
           <el-input v-model="userForm.nickname" />
         </el-form-item>
         <el-form-item label="用户名" prop="username">
           <el-input v-model="userForm.username" />
         </el-form-item>
-        <el-form-item label="密码" prop="password" v-if="dialogType === 'add'">
+        <el-form-item label="密码" prop="password">
           <el-input v-model="userForm.password" type="password" show-password />
         </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitForm">确认</el-button>
+          <el-button @click="dialogVisible = false" class="cancel-button">取消</el-button>
+          <el-button type="primary" @click="submitForm" class="confirm-button">确认</el-button>
         </span>
       </template>
     </el-dialog>
@@ -109,10 +126,12 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 // 引入api
-import { addAgents } from '../api/staff'
+import { addAgents, getAgentsList, updateAgents, deleteAgents } from '../api/staff'
+// 导入rsa加密
+import { encrypt } from '../utils/rsaEncypt.js'
 
 // 专属链接
 const specialLink = ref('https://chat.zj.com/uffff')
@@ -134,34 +153,26 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 
 // 用户数据
-const users = reactive([
-  {
-    id: 'A000001',
-    nickname: 'A000001',
-    username: 'A00001',
-    status: '在线',
-    lastLoginTime: '2025/12/12 12:12:12',
-    registerTime: '2025/12/12 12:12:12'
-  },
-  {
-    id: 'A00002',
-    nickname: 'A00002',
-    username: 'A000002',
-    status: '离线',
-    lastLoginTime: '2025/12/12 12:12:12',
-    registerTime: '2025/12/12 12:12:11'
-  }
-])
+const users = ref([])
 
 // 过滤用户数据
 const filteredUsers = computed(() => {
-  if (!searchQuery.value) return users
+  if (!searchQuery.value) return users.value
   
-  return users.filter(user => 
+  return users.value.filter(user => 
     user.nickname.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
     user.username.toLowerCase().includes(searchQuery.value.toLowerCase())
   )
 })
+
+// 获取坐席列表
+const getAgentsListApi = async () => {
+  const res = await getAgentsList();
+  console.log(res.length);
+  if (res.length > 0) {
+    users.value = res;
+  }
+}
 
 // 分页处理
 const handleSizeChange = (val) => {
@@ -221,26 +232,12 @@ const handleEdit = (row) => {
 }
 
 // 删除用户
-const handleDelete = (row) => {
-  ElMessageBox.confirm(
-    `确定要删除用户 ${row.nickname} 吗？`,
-    '警告',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
+const handleDelete = async (row) => {
+    const res = await deleteAgents(row.id);
+    if (res == 'OK') {
+      ElMessage.success('删除成功')
+      getAgentsListApi();
     }
-  )
-    .then(() => {
-      const index = users.findIndex(user => user.id === row.id)
-      if (index !== -1) {
-        users.splice(index, 1)
-        ElMessage.success('删除成功')
-      }
-    })
-    .catch(() => {
-      ElMessage.info('已取消删除')
-    })
 }
 
 // 提交表单 新增/编辑
@@ -249,38 +246,28 @@ const submitForm = () => {
     if (valid) {
       if (dialogType.value === 'add') {
         // 新增用户
-        // const newUser = {
-        //   id: `A${(users.length + 1).toString().padStart(6, '0')}`,
-        //   nickname: userForm.nickname,
-        //   username: userForm.username,
-        //   status: '离线',
-        //   lastLoginTime: '-',
-        //   registerTime: new Date().toLocaleString('zh-CN', {
-        //     year: 'numeric',
-        //     month: '2-digit',
-        //     day: '2-digit',
-        //     hour: '2-digit',
-        //     minute: '2-digit',
-        //     second: '2-digit'
-        //   }).replace(/\//g, '-')
-        // }
         let newUser = {
             nickName: userForm.nickname,
-            password: userForm.password,
+            password: encrypt(userForm.password),
             username: userForm.username,
         }
         const res = await addAgents(newUser);
         console.log(res);
-        
-        // users.push(newUser)
-        // ElMessage.success('添加成功')
+        if (res == 'OK') {
+          ElMessage.success('添加成功')
+          getAgentsListApi();
+        }
       } else {
         // 编辑用户
-        const index = users.findIndex(user => user.id === userForm.id)
-        if (index !== -1) {
-          users[index].nickname = userForm.nickname
-          users[index].username = userForm.username
-          ElMessage.success('更新成功')
+        let newUser = {
+            nickName: userForm.nickname,
+            password: encrypt(userForm.password),
+            username: userForm.username,
+        }
+        const res = await updateAgents(newUser);
+        if (res == 'OK') {
+          ElMessage.success('修改成功')
+          getAgentsListApi();
         }
       }
       dialogVisible.value = false
@@ -289,6 +276,11 @@ const submitForm = () => {
     }
   })
 }
+
+// 初始化
+onMounted(() => {
+  getAgentsListApi();
+})
 </script>
 
 <style scoped lang="scss">
@@ -305,6 +297,7 @@ const submitForm = () => {
   align-items: flex-start;
   padding-bottom: 20px;
   border-bottom: 1px solid #eaeaea;
+  box-sizing: border-box;
 }
 
 .page-header h2 {
@@ -335,6 +328,12 @@ const submitForm = () => {
   padding: 15px;
   border-radius: 8px;
   border: 1px solid #e0f0ff;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+  }
 }
 
 .link-info {
@@ -353,6 +352,11 @@ const submitForm = () => {
   
   :deep(.el-input__wrapper) {
     box-shadow: 0 0 0 1px #dcdfe6 inset;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      box-shadow: 0 0 0 1px #b3d8ff inset;
+    }
   }
   
   :deep(.el-input-group__append) {
@@ -362,9 +366,11 @@ const submitForm = () => {
     .el-button {
       color: white;
       border: none;
+      transition: all 0.3s ease;
       
       &:hover {
         background-color: #3a75e6;
+        transform: scale(1.05);
       }
     }
   }
@@ -379,6 +385,7 @@ const submitForm = () => {
   padding: 8px 12px;
   border-radius: 4px;
   border-left: 3px solid #4080ff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 .search-section {
@@ -386,9 +393,15 @@ const submitForm = () => {
   justify-content: space-between;
   margin-bottom: 20px;
   background-color: white;
-  padding: 15px;
+  padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+  
+  &:hover {
+    box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.08);
+  }
 }
 
 .search-input {
@@ -396,6 +409,9 @@ const submitForm = () => {
   
   :deep(.el-input__wrapper) {
     box-shadow: 0 0 0 1px #dcdfe6 inset;
+    border-radius: 20px;
+    padding-left: 5px;
+    transition: all 0.3s ease;
     
     &:hover {
       box-shadow: 0 0 0 1px #c0c4cc inset;
@@ -405,22 +421,70 @@ const submitForm = () => {
       box-shadow: 0 0 0 1px #4080ff inset;
     }
   }
+  
+  :deep(.el-input__prefix) {
+    margin-right: 5px;
+  }
+  
+  .search-icon {
+    color: #909399;
+  }
+}
+
+.add-button {
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(64, 128, 255, 0.3);
+  }
+  
+  i {
+    margin-right: 5px;
+  }
+}
+
+.table-container {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+  
+  &:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  }
 }
 
 .el-table {
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
   
   :deep(th.el-table__cell) {
     background-color: #f5f7fa;
     color: #606266;
     font-weight: 600;
+    transition: background-color 0.3s;
+    
+    &:hover {
+      background-color: #edf2fc;
+    }
+  }
+  
+  :deep(tr.el-table__row) {
+    transition: all 0.2s;
+    
+    &:hover {
+      background-color: #f5f7fa;
+    }
   }
   
   :deep(.el-button) {
     padding: 6px 12px;
     font-size: 12px;
+    transition: all 0.3s ease;
   }
   
   :deep(.el-button--primary) {
@@ -430,24 +494,78 @@ const submitForm = () => {
     &:hover {
       background-color: #3a75e6;
       border-color: #3a75e6;
+      transform: translateY(-2px);
     }
   }
   
   :deep(.el-button--danger) {
     &:hover {
       opacity: 0.9;
+      transform: translateY(-2px);
     }
   }
+}
+
+.operation-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.edit-button, .delete-button {
+  min-width: 60px;
 }
 
 .pagination-container {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
-  padding: 15px;
+  padding: 15px 20px;
   background-color: white;
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+  
+  &:hover {
+    box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.08);
+  }
+  
+  :deep(.el-pagination) {
+    --el-pagination-bg-color: transparent;
+    --el-pagination-hover-color: #4080ff;
+    
+    .el-pagination__sizes {
+      margin-right: 15px;
+    }
+    
+    .btn-prev, .btn-next {
+      background-color: #f5f7fa;
+      border-radius: 4px;
+      margin: 0 5px;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        background-color: #e6f1ff;
+      }
+    }
+    
+    .el-pager li {
+      background-color: #f5f7fa;
+      border-radius: 4px;
+      margin: 0 3px;
+      transition: all 0.3s ease;
+      
+      &.is-active {
+        background-color: #4080ff;
+      }
+      
+      &:hover:not(.is-active) {
+        color: #4080ff;
+        background-color: #e6f1ff;
+      }
+    }
+  }
 }
 
 .status-online {
@@ -466,6 +584,7 @@ const submitForm = () => {
     height: 8px;
     background-color: #67c23a;
     border-radius: 50%;
+    animation: pulse 1.5s infinite;
   }
 }
 
@@ -491,16 +610,22 @@ const submitForm = () => {
 :deep(.el-dialog) {
   border-radius: 8px;
   overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
   
   .el-dialog__header {
     background-color: #f5f7fa;
     margin: 0;
     padding: 15px 20px;
     border-bottom: 1px solid #eaeaea;
+    
+    .el-dialog__title {
+      font-weight: 600;
+      color: #303133;
+    }
   }
   
   .el-dialog__body {
-    padding: 20px;
+    padding: 30px 20px;
   }
   
   .el-dialog__footer {
@@ -510,6 +635,45 @@ const submitForm = () => {
   
   .el-form-item__label {
     font-weight: 500;
+  }
+  
+  .el-input__wrapper {
+    transition: all 0.3s ease;
+    
+    &:hover {
+      box-shadow: 0 0 0 1px #c0c4cc inset;
+    }
+    
+    &.is-focus {
+      box-shadow: 0 0 0 1px #4080ff inset;
+    }
+  }
+  
+  .dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    
+    .cancel-button, .confirm-button {
+      min-width: 80px;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        transform: translateY(-2px);
+      }
+    }
+  }
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(103, 194, 58, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(103, 194, 58, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(103, 194, 58, 0);
   }
 }
 </style>
