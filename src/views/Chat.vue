@@ -52,7 +52,7 @@
         <h3>个人信息</h3>
         <!-- <el-button type="primary" size="small" @click="goToProfile">查看详情</el-button> -->
       </div>
-      <div class="profile-content">    
+      <div class="profile-content">
         <el-avatar :size="80" icon="User" />
         <div class="user-info_data">
           <div class="username">{{ username }}</div>
@@ -84,11 +84,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick, watch, onBeforeUnmount } from 'vue'
 import { User } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import 'emoji-picker-element'
+import wsClient from '../utils/websocket'
 
 const router = useRouter()
 const username = ref(localStorage.getItem('username') || '用户')
@@ -157,21 +158,69 @@ const closeEmojiPicker = () => {
   showEmojiPicker.value = false
 }
 
+// 添加 WebSocket 消息处理函数
+const handleWebSocketMessage = (data) => {
+  console.log('收到WebSocket消息:', data)
+  
+  // 根据消息类型处理不同的消息
+  if (data.type === 'message') {
+    // 处理聊天消息
+    const newMessage = {
+      content: data.content,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      isSelf: false,
+      type: data.messageType || 'text'
+    }
+    
+    // 如果指定了会话ID，则添加到对应会话
+    if (data.conversationId !== undefined) {
+      const index = conversations.findIndex(conv => conv.id === data.conversationId)
+      if (index !== -1) {
+        conversations[index].messages.push(newMessage)
+        conversations[index].lastMessage = data.content
+        
+        // 如果不是当前会话，可以添加未读消息提示
+        if (currentConversation.value !== index) {
+          // 这里可以添加未读消息提示的逻辑
+        }
+      }
+    } else {
+      // 默认添加到当前会话
+      conversations[currentConversation.value].messages.push(newMessage)
+      conversations[currentConversation.value].lastMessage = data.content
+    }
+    
+    // 滚动到底部
+    nextTick(() => {
+      scrollToBottom()
+    })
+  } else if (data.type === 'system') {
+    // 处理系统消息，例如用户上线下线通知
+    ElMessage.info(data.content)
+  }
+}
+
 // 在组件挂载后添加全局点击事件监听器
 onMounted(() => {
-  document.addEventListener('click', (event) => {
-    // 检查点击是否在表情选择器外部
-    const emojiPicker = document.querySelector('.emoji-picker-container')
-    const emojiButton = event.target.closest('button')
-    
-    // 如果表情选择器已显示，且点击不在表情选择器内部，也不是打开表情选择器的按钮
-    if (showEmojiPicker.value && 
-        emojiPicker && 
-        !emojiPicker.contains(event.target) && 
-        (!emojiButton || !emojiButton.textContent.includes('表情'))) {
-      showEmojiPicker.value = false
-    }
-  })
+  // 连接WebSocket
+  wsClient.connect()
+  
+  // 注册WebSocket消息处理函数
+  const removeMessageListener = wsClient.onMessage(handleWebSocketMessage)
+  
+  // 初始化时滚动到底部
+  scrollToBottom()
+
+  if (!customElements.get('emoji-picker')) {
+    import('emoji-picker-element').then(({ default: EmojiPicker }) => {
+      customElements.define('emoji-picker', EmojiPicker)
+    })
+  }
+})
+
+// 在组件卸载前断开WebSocket连接
+onBeforeUnmount(() => {
+  wsClient.disconnect()
 })
 
 
@@ -190,7 +239,7 @@ const openImageUploader = () => {
   fileInput.type = 'file'
   fileInput.accept = 'image/*'
   fileInput.style.display = 'none'
-  
+
   // 监听文件选择事件
   fileInput.addEventListener('change', (event) => {
     const file = event.target.files[0]
@@ -205,9 +254,18 @@ const openImageUploader = () => {
           isSelf: true,
           type: 'image'
         }
-        
+
         // 直接添加图片消息到当前会话
         conversations[currentConversation.value].messages.push(imageMessage)
+
+        // 通过WebSocket发送图片消息
+        wsClient.send({
+          type: 'chat',
+          content: e.target.result,
+          conversationId: conversations[currentConversation.value].id,
+          messageType: 'image',
+          timestamp: new Date().getTime()
+        })
         
         // 清空输入框，因为图片已经作为单独消息发送
         messageInput.value = ''
@@ -216,19 +274,11 @@ const openImageUploader = () => {
         nextTick(() => {
           scrollToBottom()
         })
-        
-        // 阻止继续执行后面的sendMessage()，因为我们已经手动添加了消息
-        return
-        // 这里可以扩展为实际发送图片的逻辑
-        // 例如: sendImageMessage(e.target.result)
-        
-        // 发送消息
-        sendMessage()
       }
       reader.readAsDataURL(file)
     }
   })
-  
+
   // 触发文件选择器
   document.body.appendChild(fileInput)
   fileInput.click()
@@ -286,7 +336,7 @@ const sendMessage = () => {
       content: '已收到您的消息，我们会尽快处理您的问题。',
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
       isSelf: false,
-      type:'text'
+      type: 'text'
     }
     conversations[currentConversation.value].messages.push(autoReply)
     conversations[currentConversation.value].lastMessage = autoReply.content
@@ -385,7 +435,7 @@ onMounted(() => {
   display: flex;
   margin-top: 10px;
 }
- 
+
 .stat-value {
   font-size: 14px;
   font-weight: bold;
@@ -576,5 +626,4 @@ onMounted(() => {
   --outline-width: 1px;
   --skintone-dropdown-border-color: #e0e0e0;
 }
-
 </style>
