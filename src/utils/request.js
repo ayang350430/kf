@@ -74,7 +74,6 @@ service.interceptors.response.use(
   error => {
     // 隐藏加载状态
     hideLoading()
-    console.log(error,'error');
     if (error.response.data.message == '登录状态已过期，请重新登录') {
       ElMessage.error(error.response.data.message || '请求失败');
       router.push('/login')
