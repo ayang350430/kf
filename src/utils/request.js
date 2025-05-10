@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { ElMessage, ElLoading } from 'element-plus'
+import router from '../router'
 
 // 创建加载实例的存储对象
 let loadingInstance = null
@@ -68,18 +69,22 @@ service.interceptors.response.use(
     }
     const res = response.data
     // 根据你的后端API响应结构进行调整
-    if (res.code && res.code !== 200) {
-      ElMessage.error(res.message || '请求失败')
-      return Promise.reject(new Error(res.message || '请求失败'))
-    }
     return res
   },
   error => {
     // 隐藏加载状态
     hideLoading()
-    console.error('Response error:', error)
-    ElMessage.error(error.message || '请求失败')
-    return Promise.reject(error)
+    console.log(error,'error');
+    if (error.response.data.message == '登录状态已过期，请重新登录') {
+      ElMessage.error(error.response.data.message || '请求失败');
+      router.push('/login')
+      return;
+    }
+    if (error.response.data.status == 400) {
+      ElMessage.error(error.response.data.message || '请求失败');
+      return Promise.reject(new Error(res.message || '请求失败'));
+    }
+    return Promise.reject(new Error(res.message || '请求失败'));
   }
 )
 
