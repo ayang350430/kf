@@ -9,7 +9,7 @@ class WebSocketClient {
     this.isConnected = false
 
     // 心跳相关配置
-    this.heartbeatInterval = 30000 // 心跳间隔，30秒
+    this.heartbeatInterval = 20000 // 心跳间隔，20秒
     this.heartbeatTimer = null
     this.missedHeartbeats = 0
     this.maxMissedHeartbeats = 3 // 最大允许的心跳丢失次数
@@ -30,7 +30,7 @@ class WebSocketClient {
       this.ws = new WebSocket(wsUrl)
 
       this.ws.onopen = () => {
-        console.log('WebSocket connected')
+        console.log('WebSocket 连接成功')
         this.isConnected = true
         this.reconnectAttempts = 0
 
@@ -43,19 +43,19 @@ class WebSocketClient {
           const data = JSON.parse(event.data)
           this.messageCallbacks.forEach(callback => callback(data))
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error)
+          console.error('错误消息:', error)
         }
       }
 
       this.ws.onclose = () => {
-        console.log('WebSocket disconnected')
+        console.log('WebSocket 关闭')
         this.isConnected = false
         this.reconnect()
         this.stopHeartbeat() // 停止心跳
       }
 
       this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error)
+        console.error('WebSocket 错误:', error)
         this.isConnected = false
       }
     } catch (error) {
@@ -74,7 +74,10 @@ class WebSocketClient {
     }
   }
 
+  // 发送消息
   send(message) {
+    console.log(this.isConnected,'isConnected发送');
+    
     if (this.isConnected && this.ws) {
       try {
         this.ws.send(JSON.stringify(message))
@@ -82,7 +85,7 @@ class WebSocketClient {
         console.error('Error sending message:', error)
       }
     } else {
-      console.error('WebSocket is not connected')
+      console.error('WebSocket 连接未建立或已关闭')
     }
   }
 

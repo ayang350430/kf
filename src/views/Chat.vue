@@ -40,17 +40,27 @@
               <template v-if="message.type === 'image'">
                 <img :src="message.content" alt="聊天图片" style="max-width: 100%; max-height: 200px;" />
               </template>
+              <template v-else-if="message.type === 'html'">
+                <div v-html="message.content" class="html-content"></div>
+              </template>
               <template v-else>
                 {{ message.content }}
               </template>
             </div>
             <div class="message-time">{{ message.createTime }}</div>
+            <div class="message-status" v-if="message.status">
+              <el-tag size="small"
+                :type="message.status === 'sending' ? 'info' : message.status === 'success' ? 'success' : 'danger'">
+                {{ message.status === 'sending' ? '发送中...' : message.status === 'success' ? '已发送' : '发送失败' }}
+              </el-tag>
+            </div>
           </div>
         </div>
       </div>
       <div class="chat-input" v-if="leftConversations.length != 0">
-        <el-input v-model="messageInput" type="textarea" :rows="3" placeholder="请输入消息..."
-          @keyup.enter.native="sendMessage" />
+        <quill-editor v-model:content="messageInput" :options="editorOptions" @keyup.enter="sendMessage"
+          content-type="html" placeholder="请输入消息..." class="editor" />
+        <div class="resize-handle"></div>
         <div class="input-actions">
           <el-button type="primary" @click="sendMessage">发送</el-button>
           <el-button type="default" @click="openEmojiPicker">表情</el-button>
@@ -68,13 +78,15 @@
       <div class="profile-content">
         <el-avatar :size="80" icon="User" />
         <div class="user-info_data">
-          <div class="username">{{  currentConversationName || 'temp' }}</div>
+          <div class="username">{{ currentConversationName || 'temp' }}</div>
           <!-- <div class="status">在线</div> -->
         </div>
         <div class="user-stats">
           <div class="stat-item">
             <div class="stat-label">首次会话时间</div>
-            <div class="stat-value">{{  formatDateTime(leftConversations[currentConversation]?.firstConnectTime) || '未知' }}</div>
+            <div class="stat-value">{{ formatDateTime(leftConversations[currentConversation]?.firstConnectTime) || '未知'
+            }}
+            </div>
           </div>
           <div class="stat-item">
             <div class="stat-label">消息数</div>
@@ -84,11 +96,11 @@
         <div class="user-stats">
           <div class="stat-item">
             <div class="stat-label">姓名</div>
-            <div class="stat-value">{{  currentConversationName || 'temp' }}</div>
+            <div class="stat-value">{{ currentConversationName || 'temp' }}</div>
           </div>
           <div class="stat-item">
             <div class="stat-label">ip</div>
-            <div class="stat-value">{{  leftConversations[currentConversation]?.ip }}</div>
+            <div class="stat-value">{{ leftConversations[currentConversation]?.ip }}</div>
           </div>
         </div>
       </div>
@@ -108,6 +120,8 @@ import wsClient from '../utils/websocket'
 import { listActive, sessionsPage } from '@/api/chat'
 // 引入时间格式化函数
 import { formatDateTime } from '@/utils/data.js'
+import { QuillEditor } from '@vueup/vue-quill'
+import '@vueup/vue-quill/dist/vue-quill.snow.css'
 
 
 const router = useRouter()
@@ -136,53 +150,87 @@ const closeEmojiPicker = () => {
   showEmojiPicker.value = false
 }
 
+// 富文本配置
+const editorOptions = {
+  theme: 'snow',
+  modules: {
+    toolbar: [
+      ['bold', 'italic', 'underline'],
+      [{ 'color': [] }, { 'background': [] }],
+    ]
+  },
+  placeholder: '请输入消息...',
+  readOnly: false,
+  formats: ['bold', 'italic', 'underline', 'color', 'background'],
+  // 添加以下配置确保输出HTML格式
+  clipboard: {
+    matchVisual: false
+  }
+}
+
 // 添加 WebSocket 消息处理函数
 const handleWebSocketMessage = (data) => {
   console.log('收到WebSocket消息:', data)
 
   // 根据消息类型处理不同的消息
-  if (data.type === 'message') {
-    // 处理聊天消息
-    const newMessage = {
-      content: data.content,
-      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-      isSelf: false,
-      type: data.messageType || 'text'
+  // 根据消息类型处理 消息发送成功
+  if (data.type === 'DOWN_MESSAGE_SENT') {
+    // 更新最后一条消息的发送状态
+    const lastMessage = conversations.value[conversations.value.length - 1]
+    if (lastMessage && lastMessage.isSelf) {
+      lastMessage.status = 'success'
     }
 
-    // 如果指定了会话ID，则添加到对应会话
-    if (data.conversationId !== undefined) {
-      const index = conversations.value.findIndex(conv => conv.id === data.conversationId)
-      if (index !== -1) {
-        conversations.value[index].messages.push(newMessage)
-        conversations.value[index].lastMessage = data.content
-
-        // 如果不是当前会话，可以添加未读消息提示
-        if (currentConversation.value !== index) {
-          // 这里可以添加未读消息提示的逻辑
-        }
-      }
-    } else {
-      // 默认添加到当前会话
-      conversations.value[currentConversation.value].messages.push(newMessage)
-      conversations.value[currentConversation.value].lastMessage = data.content
-    }
-
-    // 滚动到底部
     nextTick(() => {
       scrollToBottom()
     })
-  } else if (data.type === 'system') {
-    // 处理系统消息，例如用户上线下线通知
-    ElMessage.info(data.content)
+  }
+
+  // 消息发送失败
+  if (data.type === 'DOWN_ERROR') {
+    // 更新最后一条消息的发送状态为失败
+    const lastMessage = conversations.value[conversations.value.length - 1]
+    if (lastMessage && lastMessage.isSelf) {
+      lastMessage.status = 'failed'
+    }
+
+    nextTick(() => {
+      scrollToBottom()
+    })
+  }
+
+  // 处理新消息
+  if (data.type === 'DOWN_NEW_MESSAGE') {
+    // 构造新消息对象
+    const newMessage = {
+      content: data.data.chat.content,
+      createTime: data.data.chat.createTime,
+      isSelf: false,
+      type: 'html'
+    }
+
+    // 将新消息添加到会话中
+    conversations.value.push(newMessage)
+
+    // 更新未读消息数
+    if (data.data.unreadCount) {
+      const targetConversation = leftConversations.value.find(
+        conv => conv.id === data.data.sessionId
+      )
+      if (targetConversation) {
+        targetConversation.unread = data.data.unreadCount
+        targetConversation.lastMessage = data.data.chat.content
+        targetConversation.lastMessageTime = data.data.chat.createTime
+      }
+    }
   }
 }
 
 
 
 // 查询历史回话数据 id: 查看历史会话的临时用户ID
-const dataList = async (row)=> {
-  
+const dataList = async (row) => {
+
   // 请求参数处理
   let obj = {
     page: 0,
@@ -204,7 +252,7 @@ const dataList = async (row)=> {
 const getConversations = async () => {
   try {
     const resData = await listActive()
-    
+
     if (resData.length != 0) {
       leftConversations.value = resData;
       // 在获取默认第一条对话的历史数据、首次进入
@@ -334,16 +382,26 @@ const sendMessage = () => {
     content: messageInput.value,
     time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
     isSelf: true,
-    type: 'text'
+    type: 'html',
+    status: 'sending'
   }
 
-  conversations.value[currentConversation.value].messages.push(newMessage)
-
-  // 更新最后一条消息预览
-  conversations.value[currentConversation.value].lastMessage = messageInput.value
-
+  conversations.value.push(newMessage)
   // 清空输入框
   messageInput.value = ''
+  try {
+    wsClient.send({
+      "type": "UP_SEND_MESSAGE",
+      "data": {
+        "sessionId": leftConversations.value[currentConversation.value]?.id, // 会话 ID
+        "content": messageInput.value // 消息内容
+      }
+    })
+  } catch (error) {
+    console.error('发送WebSocket消息失败:', error)
+  }
+
+
 
   // 滚动到底部
   nextTick(() => {
@@ -351,21 +409,18 @@ const sendMessage = () => {
   })
 
   // 模拟自动回复
-  setTimeout(() => {
-    const autoReply = {
-      content: '已收到您的消息，我们会尽快处理您的问题。',
-      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-      isSelf: false,
-      type: 'text'
-    }
-    conversations.value[currentConversation.value].messages.push(autoReply)
-    conversations.value[currentConversation.value].lastMessage = autoReply.content
+  // setTimeout(() => {
+  //   const autoReply = {
+  //     content: '已收到您的消息，我们会尽快处理您的问题。',
+  //     time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+  //     isSelf: false,
+  //     type: 'text'
+  //   }
+  //   conversations.value[currentConversation.value].messages.push(autoReply)
+  //   conversations.value[currentConversation.value].lastMessage = autoReply.content
 
-    // 滚动到底部
-    nextTick(() => {
-      scrollToBottom()
-    })
-  }, 1000)
+
+  // }, 1000)
 }
 
 // 滚动到底部
@@ -395,6 +450,64 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+.message-text {
+  :deep(.html-content) {
+    img {
+      max-width: 100%;
+      max-height: 200px;
+      object-fit: contain;
+    }
+  }
+}
+
+.chat-input {
+  padding: 15px;
+  background-color: #fff;
+  border-top: 1px solid #e0e0e0;
+  position: relative;
+
+  .resize-handle {
+    height: 5px;
+    background-color: #e0e0e0;
+    cursor: ns-resize;
+    width: 100%;
+    position: relative;
+    margin-bottom: 10px;
+
+    &:hover {
+      background-color: #ccc;
+    }
+  }
+
+  // 添加以下样式来控制编辑器大小
+  :deep(.editor) {
+    max-height: 80px;
+    overflow-y: auto;
+
+    img {
+      max-width: 100%;
+      max-height: 150px;
+      object-fit: contain;
+    }
+  }
+
+  :deep(.ql-container) {
+    font-size: 14px;
+    max-height: 80px;
+    overflow-y: auto;
+  }
+
+  :deep(.ql-editor) {
+    min-height: 80px;
+    max-height: 80px;
+  }
+
+  :deep(.ql-toolbar) {
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+  }
+}
+
 .empty-state {
   display: flex;
   justify-content: center;

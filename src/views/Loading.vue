@@ -14,47 +14,48 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
+// 引入api创建临时会话
+import { createSession } from '@/api/loding.js'
 
 const router = useRouter()
 const route = useRoute()
 const loadingText = ref('正在连接客服系统...')
 
-onMounted(async () => {
-    try {
-        // 获取路由参数
-        const userId = route.query.userId
-        const source = route.query.source
-        const type = route.query.type
-
-        // 模拟API请求
-        await simulateApiRequest(userId, source, type)
-
+// 创建临时会话 userCode
+const createSessionData = async (userCode, han) => {
+    const res = await createSession({ ...userCode }, han)
+    if (res) {
+        ElMessage.success('连接客服系统成功')
+        // 存储token到localStorage
+        localStorage.setItem('token', res.token)
+        // 存储session用户数据到localStorage
+        localStorage.setItem('sessionUser', JSON.stringify(res.session))
         // 请求成功后跳转到用户聊天页面
         router.push({
-            path: '/user-chat',
-            query: {
-                userId: userId,
-                source: source,
-                type: type
-            }
+            path: '/user-chat'
         })
-    } catch (error) {
-        loadingText.value = '连接失败，请稍后重试...'
-        ElMessage.error('连接客服系统失败')
-
-        // 3秒后返回首页
-        setTimeout(() => {
-            // 示例：跳转到加载页面
-            router.push({
-                path: '/loading',
-                query: {
-                    userId: '123',
-                    source: 'website',
-                    type: 'support'
-                }
-            })
-        }, 3000)
     }
+}
+
+onMounted(async () => {
+    // 获取路由参数
+    const userCode = route.query.userCode
+    const orgCode = route.query.orgCode
+    const name = route.query.name
+
+    // 调用api
+    createSessionData({
+        userCode,
+        orgCode,
+        name
+    }, {
+        'X-Client-Id': `${window.navigator.userAgent}_${window.screen.width}x${window.screen.height}_${window.navigator.hardwareConcurrency}_${window.navigator.platform}_${window.navigator.language}_${new Date().getTime()}`
+            .split('')
+            .reduce((hash, char) => {
+                return ((hash << 5) - hash) + char.charCodeAt(0) | 0;
+            }, 0)
+            .toString(36)
+    })
 })
 
 // 模拟API请求
