@@ -191,8 +191,7 @@ const sendMessage = () => {
   }
 
   messages.push(newMessage)
-  // 重置富文本编辑器内容为空字符串
-  messageInput.value = ''
+ 
   try {
     wsClient.send({
       "type": "UP_SEND_MESSAGE",
@@ -204,6 +203,9 @@ const sendMessage = () => {
   } catch (error) {
     console.error('发送WebSocket消息失败:', error)
   }
+
+   // 重置富文本编辑器内容为空字符串
+  messageInput.value = '<p><br></p>'
 
   nextTick(() => {
     scrollToBottom()
@@ -262,7 +264,7 @@ const handleWebSocketMessage = (data) => {
         minute: '2-digit'
       }),
       isSelf: false,
-      type: 'text'
+      type: 'html'
     }
     messages.push(serviceMessage)
 

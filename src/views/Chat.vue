@@ -121,6 +121,8 @@ import { listActive, sessionsPage } from '@/api/chat'
 // 引入时间格式化函数
 import { formatDateTime } from '@/utils/data.js'
 import { QuillEditor } from '@vueup/vue-quill'
+import { uploadData } from '@/api/uters.js'
+// 引入富文本
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 
 
@@ -224,6 +226,35 @@ const handleWebSocketMessage = (data) => {
       }
     }
   }
+
+  // 处理新会话
+  if (data.type === 'DOWN_NEW_SESSION') {
+    // 构造新会话对象
+    const newConversation = {
+      id: data.data.id,
+      name: data.data.name,
+      unread: data.data.unreadCount,
+      lastMessage: data.data.lastMessage,
+      lastMessageTime: data.data.lastMessageTime,
+      firstConnectTime: data.data.firstConnectTime,
+      ip: data.data.ip
+    }
+
+    // 将新会话添加到会话列表中
+    leftConversations.value.unshift(newConversation)
+
+    // 更新未读消息数
+    if (data.data.unreadCount) {
+      const targetConversation = leftConversations.value.find(
+        conv => conv.id === data.data.id
+      )
+      if (targetConversation) {
+        targetConversation.unread = data.data.unreadCount
+        targetConversation.lastMessage = data.data.lastMessage
+        targetConversation.lastMessageTime = data.data.lastMessageTime
+      }
+    }
+  }
 }
 
 
@@ -241,6 +272,13 @@ const dataList = async (row) => {
   if (res) {
     let constRes = []
     res.content.forEach(element => {
+      if (element.chatType == 1) {
+        element.type = 'html'
+        element.isSelf = true
+      } else {
+        element.type = 'html'
+        element.isSelf = false
+      }
       constRes.unshift(element)
     });
     conversations.value = constRes;
@@ -312,29 +350,15 @@ const openImageUploader = () => {
     if (file) {
       // 处理选择的图片
       const reader = new FileReader()
-      reader.onload = (e) => {
-        // 将图片数据存储到消息内容中，并设置消息类型为图片
-        const imageMessage = {
-          content: e.target.result,
-          time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-          isSelf: true,
-          type: 'image'
-        }
-
-        // 直接添加图片消息到当前会话
-        conversations.value[currentConversation.value].messages.push(imageMessage)
-
-        // 通过WebSocket发送图片消息
-        wsClient.send({
-          type: 'chat',
-          content: e.target.result,
-          conversationId: conversations.value[currentConversation.value].id,
-          messageType: 'image',
-          timestamp: new Date().getTime()
+      reader.onload = async (e) => {
+        const fileUrl = URL.createObjectURL(file) // 创建临时Blob URL用于预览图片
+        // 上传图片到服务器
+        const formData = new FormData()
+        formData.append('file', file)
+        const response = await uploadData(formData, {
+          'Content-Type': 'multipart/form-data'
         })
-
-        // 清空输入框，因为图片已经作为单独消息发送
-        messageInput.value = ''
+        messageInput.value += `<img src="${response.url}" alt="上传图片" />`
 
         // 滚动到底部显示新消息
         nextTick(() => {
@@ -387,8 +411,7 @@ const sendMessage = () => {
   }
 
   conversations.value.push(newMessage)
-  // 清空输入框
-  messageInput.value = ''
+ 
   try {
     wsClient.send({
       "type": "UP_SEND_MESSAGE",
@@ -400,6 +423,9 @@ const sendMessage = () => {
   } catch (error) {
     console.error('发送WebSocket消息失败:', error)
   }
+
+   // 清空输入框
+  messageInput.value = '<p><br></p>'
 
 
 
