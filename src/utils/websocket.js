@@ -9,10 +9,10 @@ class WebSocketClient {
     this.isConnected = false
 
     // 心跳相关配置
-    this.heartbeatInterval = 20000 // 心跳间隔，20秒
+    this.heartbeatInterval = 10000 // 心跳间隔，20秒
     this.heartbeatTimer = null
     this.missedHeartbeats = 0
-    this.maxMissedHeartbeats = 3 // 最大允许的心跳丢失次数
+    this.maxMissedHeartbeats = 5 // 最大允许的心跳丢失次数
   }
 
   connect() {
@@ -47,6 +47,7 @@ class WebSocketClient {
         }
       }
 
+      // 监听 WebSocket 关闭事件
       this.ws.onclose = () => {
         console.log('WebSocket 关闭')
         this.isConnected = false
@@ -54,6 +55,7 @@ class WebSocketClient {
         this.stopHeartbeat() // 停止心跳
       }
 
+      // 监听 WebSocket 错误事件
       this.ws.onerror = (error) => {
         console.error('WebSocket 错误:', error)
         this.isConnected = false
@@ -89,6 +91,7 @@ class WebSocketClient {
     }
   }
 
+  // 监听消息
   onMessage(callback) {
     this.messageCallbacks.add(callback)
     return () => this.messageCallbacks.delete(callback)
@@ -135,6 +138,7 @@ class WebSocketClient {
     }
   }
 
+  // 断开连接
   disconnect() {
     this.stopHeartbeat() // 断开连接时停止心跳
     if (this.ws) {

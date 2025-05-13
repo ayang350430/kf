@@ -154,39 +154,11 @@ const openImageUploader = () => {
         const fileUrl = URL.createObjectURL(file) // 创建临时Blob URL用于预览图片
         // 上传图片到服务器
         const formData = new FormData()
-        formData.append('file', fileUrl)
-        try {
-          const response = await uploadData(formData)
-          if (response) {
-            // 上传成功,将返回的图片URL添加到消息中
-            const imageMessage = {
-              content: response.data.url,
-              time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-              isSelf: true,
-              type: 'image',
-              status: 'sending'
-            }
-            messages.push(imageMessage)
-
-            // 发送图片消息到WebSocket
-            wsClient.send({
-              "type": "UP_SEND_MESSAGE",
-              "data": {
-                "sessionId": JSON.parse(localStorage.getItem('sessionUser')).id,
-                "content": response.data.url
-              }
-            })
-          } else {
-            ElMessage.error('图片上传失败')
-          }
-        } catch (error) {
-          console.error('上传图片出错:', error)
-          ElMessage.error('图片上传失败')
-        }
-
-
-        // 清空输入框，因为图片已经作为单独消息发送
-        messageInput.value = ''
+        formData.append('file', file)
+        const response = await uploadData(formData, {
+          'Content-Type': 'multipart/form-data'
+        })
+        messageInput.value += `<img src="${response.url}" alt="上传图片" />`
 
         // 滚动到底部显示新消息
         nextTick(() => {
@@ -219,7 +191,8 @@ const sendMessage = () => {
   }
 
   messages.push(newMessage)
-
+  // 重置富文本编辑器内容为空字符串
+  messageInput.value = ''
   try {
     wsClient.send({
       "type": "UP_SEND_MESSAGE",
@@ -231,8 +204,6 @@ const sendMessage = () => {
   } catch (error) {
     console.error('发送WebSocket消息失败:', error)
   }
-
-  messageInput.value = ''
 
   nextTick(() => {
     scrollToBottom()
