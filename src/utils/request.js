@@ -86,6 +86,11 @@ service.interceptors.response.use(
       ElMessage.error(error.response.data.message || '请求失败');
       return Promise.reject(new Error(error.response.data.message|| '请求失败'));
     }
+    if (error.response.data.status == 401) {
+      ElMessage.error(error.response.data.message || '请求失败');
+      router.push('/login');
+      return Promise.reject(new Error(error.response.data.message || '请求失败'));
+    }
     return Promise.reject(new Error(error.response.data.message || '请求失败'));
   }
 )

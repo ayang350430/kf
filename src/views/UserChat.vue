@@ -152,10 +152,10 @@ const openImageUploader = () => {
       const reader = new FileReader()
       reader.onload = async (e) => {
         // 获取文件的本地路径
-        const imageUrl = e.target.result
+        const fileUrl = URL.createObjectURL()
         // 上传图片到服务器
         const formData = new FormData()
-        formData.append('file', imageUrl)
+        formData.append('file', fileUrl)
         try {
           const response = await uploadData(formData)
           if (response) {
@@ -220,7 +220,7 @@ const sendMessage = () => {
   }
 
   messages.push(newMessage)
-  messageInput.value = ''
+
   try {
     wsClient.send({
       "type": "UP_SEND_MESSAGE",
@@ -233,7 +233,7 @@ const sendMessage = () => {
     console.error('发送WebSocket消息失败:', error)
   }
 
-  
+  messageInput.value = ''
 
   nextTick(() => {
     scrollToBottom()
