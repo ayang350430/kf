@@ -146,13 +146,12 @@ const openImageUploader = () => {
 
   // 监听文件选择事件
   fileInput.addEventListener('change', (event) => {
-    const file = event.target.files[0]
+    const file = event.target.files[0];
     if (file) {
       // 处理选择的图片
       const reader = new FileReader()
       reader.onload = async (e) => {
-        // 获取文件的本地路径
-        const fileUrl = URL.createObjectURL()
+        const fileUrl = URL.createObjectURL(file) // 创建临时Blob URL用于预览图片
         // 上传图片到服务器
         const formData = new FormData()
         formData.append('file', fileUrl)
